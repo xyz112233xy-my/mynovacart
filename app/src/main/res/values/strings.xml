@@ -1,0 +1,50 @@
+<resources>
+    <string name="app_name">Nova Cart</string>
+    <string name="brand_wordmark">NOVA CART</string>
+    <string name="brand_website_url">https://mynovacart.in</string>
+    <string name="brand_website_display">mynovacart.in</string>
+
+    <string name="coming_soon_badge">COMING SOON</string>
+    <string name="app_live_badge">ANDROID APP LIVE</string>
+    <string name="coming_soon_headline">Something Amazing Is Coming!</string>
+    <string name="welcome_message">Welcome to NOVA CART – Your Next Favourite Shopping Destination.</string>
+    <string name="coming_soon_body">Something exciting is on its way. We are working hard to bring you amazing products and a better shopping experience.</string>
+
+    <string name="cta_notify_me">Notify Me</string>
+    <string name="cta_notify_manage">Subscribed • Manage Alert</string>
+    <string name="cta_visit_website">Visit mynovacart.in</string>
+    <string name="cta_share_app">Share NOVA CART</string>
+    <string name="cta_check_status">Check Store Launch Status</string>
+
+    <string name="nav_home">Home</string>
+    <string name="nav_preview">Store</string>
+    <string name="nav_launch_hub">Launch Hub</string>
+
+    <string name="section_categories_title">Launching Categories</string>
+    <string name="section_categories_subtitle">Curated departments preparing for our official opening</string>
+    <string name="section_launch_announcement_title">Official Launch Notice</string>
+    <string name="section_social_title">Connect &amp; Follow</string>
+
+    <string name="category_home_decor">Home Decor</string>
+    <string name="category_home_decor_desc">Thoughtful accents, lighting, and modern living essentials.</string>
+    <string name="category_kitchen">Kitchen Accessories</string>
+    <string name="category_kitchen_desc">Smart cookware, storage, and everyday culinary tools.</string>
+    <string name="category_beauty">Beauty Care</string>
+    <string name="category_beauty_desc">Daily skincare, grooming, and self-care essentials.</string>
+    <string name="category_gadgets">Daily Life Gadgets</string>
+    <string name="category_gadgets_desc">Practical tech and clever accessories for everyday flow.</string>
+    <string name="category_kids">Kids</string>
+    <string name="category_kids_desc">Playful, safe, and practical essentials for growing kids.</string>
+
+    <string name="notify_sheet_title">Get Early Launch Access</string>
+    <string name="notify_sheet_subtitle">Be the first to know when mynovacart.in goes live with all five departments.</string>
+    <string name="notify_email_label">Email address</string>
+    <string name="notify_name_label">Your name (optional)</string>
+    <string name="notify_submit">Save Launch Alert</string>
+    <string name="notify_success_title">You are on the NOVA CART launch list!</string>
+    <string name="notify_error_email">Please enter a valid email address.</string>
+
+    <string name="store_locked_banner_title">Storefront Disabled Until Official Launch</string>
+    <string name="store_locked_banner_body">Shopping features below are pre-configured for mynovacart.in and will activate automatically once the store launches—no fake listings or placeholder prices.</string>
+    <string name="locked_until_launch">Disabled Until Launch</string>
+</resources>

@@ -1,0 +1,6 @@
+{
+  "name": "Nova Cart",
+  "description": "NOVA CART official Android shopping app launching with a Coming Soon experience and ready-to-activate Shopify integration for mynovacart.in.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
