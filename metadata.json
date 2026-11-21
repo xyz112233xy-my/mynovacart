@@ -1,6 +1,6 @@
 {
   "name": "Nova Cart",
-  "description": "NOVA CART official Android shopping app launching with a Coming Soon experience and ready-to-activate Shopify integration for mynovacart.in.",
+  "description": "NOVA CART official Android shopping app connected directly to Shopify (mynovacart.in) with live catalog sync, cart, UPI & COD checkout, wishlist, order tracking, and NOVA Concierge.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

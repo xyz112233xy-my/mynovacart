@@ -3,19 +3,62 @@ package com.example.data
 import com.squareup.moshi.Json
 
 /**
- * Remote launch configuration schema that https://mynovacart.in can serve at
- * /pages/app-config.json (or via Storefront check) to activate full shopping
- * features without rebuilding the Android APK.
+ * Shopify public storefront catalog DTOs (/products.json & /collections.json)
+ * plus Storefront GraphQL DTOs and optional remote config.
  */
+data class ShopifyProductsJsonResponse(
+  @Json(name = "products") val products: List<ShopifyRestProduct> = emptyList(),
+)
+
+data class ShopifyRestProduct(
+  @Json(name = "id") val id: Long,
+  @Json(name = "title") val title: String = "",
+  @Json(name = "handle") val handle: String = "",
+  @Json(name = "body_html") val bodyHtml: String? = null,
+  @Json(name = "vendor") val vendor: String? = null,
+  @Json(name = "product_type") val productType: String? = null,
+  @Json(name = "tags") val tags: List<String> = emptyList(),
+  @Json(name = "variants") val variants: List<ShopifyRestVariant> = emptyList(),
+  @Json(name = "images") val images: List<ShopifyRestImage> = emptyList(),
+)
+
+data class ShopifyRestVariant(
+  @Json(name = "id") val id: Long,
+  @Json(name = "title") val title: String = "Default Title",
+  @Json(name = "price") val price: String = "0.00",
+  @Json(name = "compare_at_price") val compareAtPrice: String? = null,
+  @Json(name = "available") val available: Boolean = true,
+  @Json(name = "sku") val sku: String? = null,
+)
+
+data class ShopifyRestImage(
+  @Json(name = "id") val id: Long? = null,
+  @Json(name = "src") val src: String = "",
+  @Json(name = "alt") val alt: String? = null,
+)
+
+data class ShopifyCollectionsJsonResponse(
+  @Json(name = "collections") val collections: List<ShopifyRestCollection> = emptyList(),
+)
+
+data class ShopifyRestCollection(
+  @Json(name = "id") val id: Long,
+  @Json(name = "handle") val handle: String = "",
+  @Json(name = "title") val title: String = "",
+  @Json(name = "description") val description: String? = null,
+  @Json(name = "image") val image: ShopifyCollectionImage? = null,
+)
+
+data class ShopifyCollectionImage(
+  @Json(name = "src") val src: String? = null,
+)
+
 data class RemoteAppConfig(
-  @Json(name = "store_launched") val storeLaunched: Boolean = false,
+  @Json(name = "store_launched") val storeLaunched: Boolean = true,
   @Json(name = "store_url") val storeUrl: String = "https://mynovacart.in",
   @Json(name = "storefront_api_version") val storefrontApiVersion: String = "2024-10",
   @Json(name = "storefront_access_token") val storefrontAccessToken: String? = null,
   @Json(name = "announcement_message") val announcementMessage: String? = null,
-  @Json(name = "instagram_url") val instagramUrl: String? = null,
-  @Json(name = "facebook_url") val facebookUrl: String? = null,
-  @Json(name = "youtube_url") val youtubeUrl: String? = null,
 )
 
 data class ShopifyGraphQlRequest(

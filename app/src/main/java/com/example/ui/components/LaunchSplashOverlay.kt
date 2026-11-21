@@ -121,7 +121,7 @@ fun LaunchSplashOverlay(
           )
         }
         Spacer(modifier = Modifier.height(10.dp))
-        PulsingComingSoonPill(label = "LAUNCHING SOON")
+        PulsingComingSoonPill(label = "OFFICIAL STORE")
         Spacer(modifier = Modifier.height(16.dp))
         Text(
           text = "mynovacart.in",

@@ -95,7 +95,7 @@ jobs:
           tag_name: v1.0-latest
           name: NOVA CART Android App
           body: |
-            Official NOVA CART Android APK (Coming Soon release with Shopify launch readiness and NOVA Concierge).
+            Official NOVA CART Android APK (Live Shopify Storefront, Cart, UPI/COD Checkout, Wishlist, Order Tracking & NOVA Concierge).
             Download `nova-cart.apk` below to install on Android.
           files: nova-cart.apk
           prerelease: false

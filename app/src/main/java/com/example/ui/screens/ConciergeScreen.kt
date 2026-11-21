@@ -128,7 +128,7 @@ fun ConciergeScreen(
               color = ObsidianInk,
             )
             Text(
-              text = "Pre-launch shopping & lifestyle planner",
+              text = "Shopping & lifestyle assistant",
               style = MaterialTheme.typography.bodySmall,
               color = MutedSlate,
             )
@@ -169,13 +169,13 @@ fun ConciergeScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
               ) {
                 Text(
-                  text = "Plan ahead for launch day",
+                  text = "Your NOVA CART Shopping Assistant",
                   style = MaterialTheme.typography.titleMedium,
                   color = ObsidianInk,
                 )
                 Text(
                   text =
-                    "Ask for styling inspiration, kitchen organization ideas, self-care routines, or gift checklists across our five upcoming departments while mynovacart.in prepares to open.",
+                    "Ask for styling inspiration, kitchen organization ideas, self-care routines, or gift checklists across our five departments connected to mynovacart.in.",
                   style = MaterialTheme.typography.bodyMedium,
                   color = MutedSlate,
                 )

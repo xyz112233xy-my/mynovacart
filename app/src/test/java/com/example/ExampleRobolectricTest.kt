@@ -5,21 +5,23 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
+import com.example.data.NovaCartRepository
+import com.example.model.CartItem
 import com.example.model.NovaCartCatalogBlueprint
-import com.example.ui.screens.ComingSoonScreen
+import com.example.ui.screens.CartScreen
+import com.example.ui.screens.ConciergeScreen
+import com.example.ui.screens.ShopHomeScreen
 import com.example.ui.theme.NovaCartTheme
 import com.example.ui.viewmodel.NovaCartUiState
+import com.example.ui.viewmodel.NovaConciergeUiState
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.robolectric.shadows.ShadowToast
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
@@ -50,48 +52,109 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `future shopping features remain disabled until launch`() {
+  fun `all ten shopping capabilities are unlocked`() {
     val features = NovaCartCatalogBlueprint.futureShoppingFeatures
     assertEquals(10, features.size)
-    assertTrue(features.all { !it.isEnabled })
-    assertFalse(features.any { it.isEnabled })
+    assertTrue(features.all { it.isEnabled })
     assertEquals("https://mynovacart.in", NovaCartCatalogBlueprint.OFFICIAL_WEBSITE_URL)
   }
 
   @Test
-  fun `coming soon screen displays logo welcome message and notify me shows toast`() {
+  fun `shopify checkout permalink builds valid cart url`() {
+    val items =
+      listOf(
+        CartItem(
+          productId = 1L,
+          variantId = 101L,
+          title = "Ceramic Vase",
+          variantTitle = "Ivory",
+          priceAmount = 799.0,
+          imageUrl = null,
+          quantity = 2,
+        ),
+        CartItem(
+          productId = 2L,
+          variantId = 202L,
+          title = "Desk Lamp",
+          variantTitle = "Warm",
+          priceAmount = 1299.0,
+          imageUrl = null,
+          quantity = 1,
+        ),
+      )
+
+    val url =
+      NovaCartRepository.buildShopifyCheckoutUrl(
+        storeUrl = "https://mynovacart.in/",
+        items = items,
+        customerEmail = "shopper@example.com",
+      )
+
+    assertTrue(url.startsWith("https://mynovacart.in/cart/101:2,202:1"))
+    assertTrue(url.contains("note="))
+    assertTrue(url.contains("shopper%40example.com"))
+  }
+
+  @Test
+  fun `shop home screen displays search bar departments and order tracking card`() {
     composeTestRule.setContent {
       NovaCartTheme {
-        ComingSoonScreen(
+        ShopHomeScreen(
           uiState = NovaCartUiState(categories = NovaCartCatalogBlueprint.launchCategories),
-          onVisitWebsiteClick = {},
-          onShareClick = {},
-          onCustomizeAlertClick = {},
+          onSearchBarClick = {},
+          onShopNowClick = {},
           onCategoryClick = {},
-          onExplorePreviewClick = {},
+          onProductClick = {},
+          onToggleWishlist = {},
+          onQuickAddProduct = {},
+          onRefreshStore = {},
+          onOpenWebsitePortal = {},
+          onOpenStoreSettings = {},
+          onOpenOrdersPortal = {},
         )
       }
     }
 
-    composeTestRule.onNodeWithTag("coming_soon_logo").assertIsDisplayed()
-    composeTestRule.onNodeWithTag("coming_soon_welcome_message").assertIsDisplayed()
-    composeTestRule.onNodeWithText("Notify Me").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("home_search_bar").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("home_shop_now_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("home_category_home_decor").assertIsDisplayed()
+    composeTestRule.onNodeWithText("Shop by Department").assertIsDisplayed()
+  }
 
-    composeTestRule.onNodeWithTag("notify_me_button").performClick()
+  @Test
+  fun `cart screen displays checkout button when items exist`() {
+    val cartItem =
+      CartItem(
+        productId = 1L,
+        variantId = 101L,
+        title = "Ceramic Vase",
+        variantTitle = "Ivory",
+        priceAmount = 799.0,
+        imageUrl = null,
+        quantity = 2,
+      )
+    composeTestRule.setContent {
+      NovaCartTheme {
+        CartScreen(
+          uiState = NovaCartUiState(cartItems = listOf(cartItem)),
+          onUpdateQuantity = { _, _ -> },
+          onRemoveItem = {},
+          onProceedToCheckout = {},
+          onBrowseProducts = {},
+        )
+      }
+    }
 
-    assertEquals(
-      "Thanks! We will notify you when NOVA CART launches.",
-      ShadowToast.getTextOfLatestToast(),
-    )
-    composeTestRule.onNodeWithText("Notified • Launch Alert Active").assertIsDisplayed()
+    composeTestRule.onNodeWithText("Ceramic Vase").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("proceed_to_checkout_button").assertIsDisplayed()
   }
 
   @Test
   fun `concierge screen renders starter prompts and composer`() {
     composeTestRule.setContent {
       NovaCartTheme {
-        com.example.ui.screens.ConciergeScreen(
-          uiState = com.example.ui.viewmodel.NovaConciergeUiState(),
+        ConciergeScreen(
+          uiState = NovaConciergeUiState(),
           onPromptChanged = {},
           onSendPrompt = {},
           onQuickPromptClick = {},

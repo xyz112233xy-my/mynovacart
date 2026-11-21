@@ -46,8 +46,66 @@ data class FutureFeature(
   val description: String,
   val shopifyBridge: String,
   val icon: ImageVector,
-  val isEnabled: Boolean = false,
+  val isEnabled: Boolean = true,
 )
+
+data class ShopVariant(
+  val id: Long,
+  val title: String,
+  val priceAmount: Double,
+  val compareAtPriceAmount: Double? = null,
+  val available: Boolean = true,
+)
+
+data class ShopProduct(
+  val id: Long,
+  val title: String,
+  val handle: String,
+  val description: String,
+  val vendor: String,
+  val productType: String,
+  val categoryId: String?,
+  val imageUrl: String?,
+  val imageUrls: List<String>,
+  val variants: List<ShopVariant>,
+  val available: Boolean,
+) {
+  val primaryVariant: ShopVariant?
+    get() = variants.firstOrNull { it.available } ?: variants.firstOrNull()
+
+  val displayPrice: Double
+    get() = primaryVariant?.priceAmount ?: 0.0
+
+  val compareAtPrice: Double?
+    get() = primaryVariant?.compareAtPriceAmount
+}
+
+data class CartItem(
+  val productId: Long,
+  val variantId: Long,
+  val title: String,
+  val variantTitle: String,
+  val priceAmount: Double,
+  val imageUrl: String?,
+  val quantity: Int,
+)
+
+data class OrderRecord(
+  val id: String,
+  val checkoutUrl: String,
+  val itemCount: Int,
+  val totalAmount: Double,
+  val summary: String,
+  val createdAtEpochMs: Long,
+  val status: String,
+)
+
+enum class ProductSortOption(val label: String) {
+  FEATURED("Featured"),
+  PRICE_LOW_TO_HIGH("Price: Low to High"),
+  PRICE_HIGH_TO_LOW("Price: High to Low"),
+  NAME_A_TO_Z("Name: A to Z"),
+}
 
 data class NotifyMeRegistration(
   val email: String = "",
@@ -59,14 +117,17 @@ data class NotifyMeRegistration(
 
 data class StoreLaunchStatus(
   val storeUrl: String = "https://mynovacart.in",
-  val isStoreLaunched: Boolean = false,
+  val isStoreLaunched: Boolean = true,
   val isChecking: Boolean = false,
   val isWebsiteReachable: Boolean? = null,
-  val statusHeadline: String = "Coming Soon — Pre-Launch Mode",
-  val statusDetail: String =
-    "Official website mynovacart.in is preparing for launch. Shopping features remain disabled until store opening.",
+  val isPasswordProtected: Boolean = false,
+  val syncedProductCount: Int = 0,
+  val syncedCollectionCount: Int = 0,
+  val statusHeadline: String = "Connected to mynovacart.in",
+  val statusDetail: String = "Syncing live products and collections from your Shopify store.",
+  val errorMessage: String? = null,
   val lastCheckedEpochMs: Long? = null,
-  val shopifyStorefrontConfigured: Boolean = false,
+  val shopifyStorefrontConfigured: Boolean = true,
 )
 
 data class ShopifyIntegrationCapability(
@@ -85,7 +146,7 @@ object NovaCartCatalogBlueprint {
         title = "Home Decor",
         subtitle = "Thoughtful accents, lighting, and modern living essentials.",
         launchExpectation =
-          "Curated ceramics, warm tabletop accents, wall styling, and living room pieces syncing directly from our Shopify catalog at launch.",
+          "Curated ceramics, warm tabletop accents, wall styling, and living room pieces synced directly from Shopify.",
         shopifyCollectionHandle = "home-decor",
         icon = Icons.Outlined.Home,
         accentColor = NovaCoral,
@@ -96,7 +157,7 @@ object NovaCartCatalogBlueprint {
         title = "Kitchen Accessories",
         subtitle = "Smart cookware, storage, and everyday culinary tools.",
         launchExpectation =
-          "Organized pantry containers, prep tools, kettleware, and practical dining essentials prepared for day-one availability.",
+          "Organized pantry containers, prep tools, kettleware, and practical dining essentials.",
         shopifyCollectionHandle = "kitchen-accessories",
         icon = Icons.Outlined.Kitchen,
         accentColor = AmberAccent,
@@ -107,7 +168,7 @@ object NovaCartCatalogBlueprint {
         title = "Beauty Care",
         subtitle = "Daily skincare, grooming, and self-care essentials.",
         launchExpectation =
-          "Authentic self-care tools, organizers, and daily beauty staples with live inventory tracking via Shopify.",
+          "Authentic self-care tools, organizers, and daily beauty staples with live inventory.",
         shopifyCollectionHandle = "beauty-care",
         icon = Icons.Outlined.Spa,
         accentColor = RoseAccent,
@@ -118,7 +179,7 @@ object NovaCartCatalogBlueprint {
         title = "Daily Life Gadgets",
         subtitle = "Practical tech and clever accessories for everyday flow.",
         launchExpectation =
-          "Desk chargers, compact utility devices, and smart lifestyle gear designed to simplify daily routines.",
+          "Desk chargers, compact utility devices, and smart lifestyle gear for daily routines.",
         shopifyCollectionHandle = "daily-life-gadgets",
         icon = Icons.Outlined.DevicesOther,
         accentColor = IndigoAccent,
@@ -129,7 +190,7 @@ object NovaCartCatalogBlueprint {
         title = "Kids",
         subtitle = "Playful, safe, and practical essentials for growing kids.",
         launchExpectation =
-          "Everyday organizers, creative activity gear, and family-friendly essentials curated for comfort and safety.",
+          "Everyday organizers, creative activity gear, and family-friendly essentials.",
         shopifyCollectionHandle = "kids",
         icon = Icons.Outlined.ChildCare,
         accentColor = TealAccent,
@@ -142,82 +203,82 @@ object NovaCartCatalogBlueprint {
       FutureFeature(
         id = "product_browsing",
         title = "Product Browsing",
-        description = "Explore live collections across all five NOVA CART departments.",
-        shopifyBridge = "Shopify Storefront Collections & Products API",
+        description = "Explore live collections and products synced from Shopify.",
+        shopifyBridge = "Shopify /products.json & /collections.json",
         icon = Icons.Outlined.ShoppingBag,
-        isEnabled = false,
+        isEnabled = true,
       ),
       FutureFeature(
         id = "product_search",
         title = "Product Search",
-        description = "Instant keyword and category search across real-time inventory.",
-        shopifyBridge = "Shopify Predictive & Catalog Query",
+        description = "Instant keyword, category, and price sorting across live inventory.",
+        shopifyBridge = "In-App Search & Filter Engine",
         icon = Icons.Outlined.Search,
-        isEnabled = false,
+        isEnabled = true,
       ),
       FutureFeature(
         id = "shopping_cart",
         title = "Shopping Cart",
-        description = "Add items, adjust quantities, and sync cart state seamlessly.",
-        shopifyBridge = "Shopify Cart Mutation API",
+        description = "Add variants, adjust quantities, and persist cart items locally.",
+        shopifyBridge = "Shopify Cart Permalink Bridge",
         icon = Icons.Outlined.ShoppingCart,
-        isEnabled = false,
+        isEnabled = true,
       ),
       FutureFeature(
         id = "wishlist",
         title = "Wishlist",
-        description = "Save favourite items for later and track restocks.",
-        shopifyBridge = "Synced Customer Saved List",
+        description = "Save favourite items for quick access and one-tap cart addition.",
+        shopifyBridge = "Persistent Device Wishlist",
         icon = Icons.Outlined.FavoriteBorder,
-        isEnabled = false,
+        isEnabled = true,
       ),
       FutureFeature(
         id = "secure_checkout",
         title = "Secure Checkout",
-        description = "Encrypted checkout session powered directly by mynovacart.in.",
-        shopifyBridge = "Shopify Web & Hosted Checkout",
+        description = "Encrypted checkout session directly on your Shopify store.",
+        shopifyBridge = "Shopify Hosted Cart & Checkout",
         icon = Icons.Outlined.Lock,
-        isEnabled = false,
+        isEnabled = true,
       ),
       FutureFeature(
         id = "upi_online_payments",
         title = "UPI & Online Payments",
-        description = "Pay effortlessly via UPI, cards, and net banking configured in Shopify.",
-        shopifyBridge = "Shopify Payment Gateway Settings",
+        description = "Supports UPI apps, cards, and net banking configured in Shopify.",
+        shopifyBridge = "In-App WebView + UPI Intent Routing",
         icon = Icons.Outlined.QrCode2,
-        isEnabled = false,
+        isEnabled = true,
       ),
       FutureFeature(
         id = "cash_on_delivery",
         title = "Cash on Delivery",
-        description = "Pay on doorstep delivery where enabled by your Shopify shipping rules.",
-        shopifyBridge = "Shopify COD Eligibility & Checkout",
+        description = "Uses your existing Shopify COD rules and shipping zones.",
+        shopifyBridge = "Shopify Checkout Payment Rules",
         icon = Icons.Outlined.Payments,
-        isEnabled = false,
+        isEnabled = true,
       ),
       FutureFeature(
         id = "customer_accounts",
         title = "Customer Accounts",
-        description = "Manage saved delivery addresses, profile details, and preferences.",
-        shopifyBridge = "Shopify Customer Account API",
+        description = "Sign in to your Shopify customer account directly inside the app.",
+        shopifyBridge = "Shopify /account Customer Portal",
         icon = Icons.Outlined.AccountCircle,
-        isEnabled = false,
+        isEnabled = true,
       ),
       FutureFeature(
         id = "order_tracking",
         title = "Order Tracking",
-        description = "Follow shipment milestones and carrier tracking updates in real time.",
-        shopifyBridge = "Shopify Fulfillment Tracking",
+        description = "Track live Shopify order status and shipping milestones.",
+        shopifyBridge = "Shopify /account/orders Portal",
         icon = Icons.Outlined.LocalShipping,
-        isEnabled = false,
+        isEnabled = true,
       ),
       FutureFeature(
         id = "order_history",
         title = "Order History",
-        description = "View past orders, receipts, and fulfillment summaries in one place.",
-        shopifyBridge = "Shopify Customer Orders Query",
+        description = "View past checkouts initiated from the app and your Shopify orders.",
+        shopifyBridge = "Local Order Log + Shopify Orders",
         icon = Icons.Outlined.History,
-        isEnabled = false,
+        isEnabled = true,
       ),
     )
 
@@ -226,27 +287,22 @@ object NovaCartCatalogBlueprint {
       ShopifyIntegrationCapability(
         title = "Automatic Product Sync",
         detail =
-          "Products and all five launch collections pull directly from mynovacart.in with zero duplicate catalog.",
+          "Products and collections sync directly from your Shopify store URL with zero duplicate database.",
       ),
       ShopifyIntegrationCapability(
         title = "Live Prices & Inventory",
         detail =
-          "Every price update and stock count changes automatically via Shopify Storefront queries.",
+          "Variant prices, compare-at prices, and stock availability update straight from Shopify.",
       ),
       ShopifyIntegrationCapability(
         title = "Orders Appear in Shopify",
         detail =
-          "Mobile checkouts route straight into your existing Shopify Orders dashboard for unified fulfillment.",
+          "Cart checkouts route via Shopify cart permalinks so every order goes directly into your Shopify Admin.",
       ),
       ShopifyIntegrationCapability(
         title = "Existing Payment Settings Respected",
         detail =
-          "UPI, cards, wallets, and Cash on Delivery rules configured in Shopify apply automatically at checkout.",
-      ),
-      ShopifyIntegrationCapability(
-        title = "Zero-Rebuild Launch Activation",
-        detail =
-          "Shopping modules unlock remotely as soon as mynovacart.in publishes its live storefront flag.",
+          "UPI apps, cards, wallets, and Cash on Delivery configured in Shopify work automatically.",
       ),
     )
 }

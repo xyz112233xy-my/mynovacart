@@ -14,18 +14,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material.icons.outlined.Storefront
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,14 +36,18 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -53,15 +57,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.ai.configureAppCheck
-import com.example.model.FutureFeature
-import com.example.model.NovaCartCatalogBlueprint
-import com.example.ui.components.CategoryPreviewSheet
 import com.example.ui.components.LaunchSplashOverlay
-import com.example.ui.components.NotifyMeBottomSheet
-import com.example.ui.screens.ComingSoonScreen
+import com.example.ui.components.ProductDetailSheet
+import com.example.ui.components.ShopifyWebPortalDialog
+import com.example.ui.screens.AccountStoreScreen
+import com.example.ui.screens.CartScreen
+import com.example.ui.screens.CatalogScreen
 import com.example.ui.screens.ConciergeScreen
-import com.example.ui.screens.LaunchHubScreen
-import com.example.ui.screens.StorePreviewScreen
+import com.example.ui.screens.ShopHomeScreen
 import com.example.ui.theme.HairlineBorder
 import com.example.ui.theme.MutedSlate
 import com.example.ui.theme.NovaCartTheme
@@ -74,9 +77,10 @@ import com.example.ui.viewmodel.NovaConciergeViewModel
 
 object NovaCartRoutes {
   const val HOME = "home"
-  const val STORE_PREVIEW = "store_preview"
+  const val CATALOG = "catalog"
+  const val CART = "cart"
   const val CONCIERGE = "concierge"
-  const val LAUNCH_HUB = "launch_hub"
+  const val ACCOUNT = "account"
 }
 
 private data class NavDestination(
@@ -97,11 +101,18 @@ private val bottomDestinations =
       testTag = "nav_home",
     ),
     NavDestination(
-      route = NovaCartRoutes.STORE_PREVIEW,
-      label = "Store",
+      route = NovaCartRoutes.CATALOG,
+      label = "Shop",
       selectedIcon = Icons.Filled.Storefront,
       unselectedIcon = Icons.Outlined.Storefront,
-      testTag = "nav_store",
+      testTag = "nav_shop",
+    ),
+    NavDestination(
+      route = NovaCartRoutes.CART,
+      label = "Cart",
+      selectedIcon = Icons.Filled.ShoppingCart,
+      unselectedIcon = Icons.Outlined.ShoppingCart,
+      testTag = "nav_cart",
     ),
     NavDestination(
       route = NovaCartRoutes.CONCIERGE,
@@ -111,11 +122,11 @@ private val bottomDestinations =
       testTag = "nav_concierge",
     ),
     NavDestination(
-      route = NovaCartRoutes.LAUNCH_HUB,
-      label = "Launch Hub",
-      selectedIcon = Icons.Filled.CloudSync,
-      unselectedIcon = Icons.Outlined.CloudSync,
-      testTag = "nav_launch_hub",
+      route = NovaCartRoutes.ACCOUNT,
+      label = "Account",
+      selectedIcon = Icons.Filled.AccountCircle,
+      unselectedIcon = Icons.Outlined.AccountCircle,
+      testTag = "nav_account",
     ),
   )
 
@@ -146,23 +157,24 @@ fun NovaCartAppRoot(
   val navBackStackEntry by navController.currentBackStackEntryAsState()
   val currentRoute = navBackStackEntry?.destination?.route ?: NovaCartRoutes.HOME
   val context = LocalContext.current
+  val snackbarHostState = remember { SnackbarHostState() }
 
-  val openOfficialWebsite: () -> Unit = {
-    val intent =
-      Intent(Intent.ACTION_VIEW, Uri.parse(NovaCartCatalogBlueprint.OFFICIAL_WEBSITE_URL)).apply {
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-      }
-    runCatching { context.startActivity(intent) }
+  LaunchedEffect(uiState.statusMessageBanner) {
+    val msg = uiState.statusMessageBanner
+    if (!msg.isNullOrBlank()) {
+      snackbarHostState.showSnackbar(msg)
+      viewModel.consumeStatusBanner()
+    }
   }
 
   val shareNovaCart: () -> Unit = {
     val shareIntent =
       Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_SUBJECT, "NOVA CART — Coming Soon")
+        putExtra(Intent.EXTRA_SUBJECT, "NOVA CART — Official Store")
         putExtra(
           Intent.EXTRA_TEXT,
-          "Welcome to NOVA CART – Your Next Favourite Shopping Destination! Launching soon at ${NovaCartCatalogBlueprint.OFFICIAL_WEBSITE_URL}",
+          "Shop Home Decor, Kitchen Accessories, Beauty Care, Daily Life Gadgets & Kids on NOVA CART: ${uiState.storeStatus.storeUrl}",
         )
       }
     runCatching {
@@ -184,6 +196,7 @@ fun NovaCartAppRoot(
     Scaffold(
       containerColor = PureWhite,
       contentWindowInsets = WindowInsets.safeDrawing,
+      snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
       bottomBar = {
         if (!useNavigationRail) {
           Box {
@@ -195,12 +208,20 @@ fun NovaCartAppRoot(
                   selected = selected,
                   onClick = { navigateToRoute(dest.route) },
                   icon = {
-                    Icon(
-                      imageVector = if (selected) dest.selectedIcon else dest.unselectedIcon,
-                      contentDescription = dest.label,
+                    NavDestinationIcon(
+                      destination = dest,
+                      selected = selected,
+                      cartItemCount = uiState.cartItemCount,
                     )
                   },
-                  label = { Text(dest.label, style = MaterialTheme.typography.labelMedium) },
+                  label = {
+                    Text(
+                      text = dest.label,
+                      style = MaterialTheme.typography.labelSmall,
+                      maxLines = 1,
+                      overflow = TextOverflow.Ellipsis,
+                    )
+                  },
                   colors =
                     NavigationBarItemDefaults.colors(
                       selectedIconColor = NovaCoral,
@@ -226,12 +247,19 @@ fun NovaCartAppRoot(
                 selected = selected,
                 onClick = { navigateToRoute(dest.route) },
                 icon = {
-                  Icon(
-                    imageVector = if (selected) dest.selectedIcon else dest.unselectedIcon,
-                    contentDescription = dest.label,
+                  NavDestinationIcon(
+                    destination = dest,
+                    selected = selected,
+                    cartItemCount = uiState.cartItemCount,
                   )
                 },
-                label = { Text(dest.label, style = MaterialTheme.typography.labelSmall) },
+                label = {
+                  Text(
+                    text = dest.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                  )
+                },
                 colors =
                   NavigationRailItemDefaults.colors(
                     selectedIconColor = NovaCoral,
@@ -252,21 +280,49 @@ fun NovaCartAppRoot(
           modifier = Modifier.weight(1f).fillMaxSize(),
         ) {
           composable(NovaCartRoutes.HOME) {
-            ComingSoonScreen(
+            ShopHomeScreen(
               uiState = uiState,
-              onVisitWebsiteClick = openOfficialWebsite,
-              onShareClick = shareNovaCart,
-              onCustomizeAlertClick = { viewModel.openNotifyMeSheet() },
-              onCategoryClick = viewModel::openCategoryPreview,
-              onExplorePreviewClick = { navigateToRoute(NovaCartRoutes.STORE_PREVIEW) },
+              onSearchBarClick = { navigateToRoute(NovaCartRoutes.CATALOG) },
+              onShopNowClick = {
+                viewModel.selectCategoryFilter(null)
+                navigateToRoute(NovaCartRoutes.CATALOG)
+              },
+              onCategoryClick = { category ->
+                viewModel.selectCategoryFilter(category.id)
+                navigateToRoute(NovaCartRoutes.CATALOG)
+              },
+              onProductClick = viewModel::openProductDetail,
+              onToggleWishlist = viewModel::toggleWishlist,
+              onQuickAddProduct = { product -> viewModel.addToCart(product) },
+              onRefreshStore = viewModel::refreshStoreCatalog,
+              onOpenWebsitePortal = viewModel::openStorefrontWebsite,
+              onOpenStoreSettings = { navigateToRoute(NovaCartRoutes.ACCOUNT) },
+              onOpenOrdersPortal = viewModel::openOrdersPortal,
             )
           }
 
-          composable(NovaCartRoutes.STORE_PREVIEW) {
-            StorePreviewScreen(
+          composable(NovaCartRoutes.CATALOG) {
+            CatalogScreen(
               uiState = uiState,
-              onInspectLockedFeature = viewModel::inspectLockedFeature,
-              onNotifyMeClick = { viewModel.openNotifyMeSheet() },
+              onSearchQueryChanged = viewModel::onSearchQueryChanged,
+              onSelectCategory = viewModel::selectCategoryFilter,
+              onToggleWishlistFilter = viewModel::toggleWishlistFilter,
+              onSelectSort = viewModel::selectSortOption,
+              onProductClick = viewModel::openProductDetail,
+              onToggleWishlist = viewModel::toggleWishlist,
+              onQuickAddProduct = { product -> viewModel.addToCart(product) },
+              onSyncStore = viewModel::refreshStoreCatalog,
+              onOpenStoreSettings = { navigateToRoute(NovaCartRoutes.ACCOUNT) },
+            )
+          }
+
+          composable(NovaCartRoutes.CART) {
+            CartScreen(
+              uiState = uiState,
+              onUpdateQuantity = viewModel::updateCartQuantity,
+              onRemoveItem = viewModel::removeFromCart,
+              onProceedToCheckout = viewModel::startShopifyCheckout,
+              onBrowseProducts = { navigateToRoute(NovaCartRoutes.CATALOG) },
             )
           }
 
@@ -280,57 +336,38 @@ fun NovaCartAppRoot(
             )
           }
 
-          composable(NovaCartRoutes.LAUNCH_HUB) {
-            LaunchHubScreen(
+          composable(NovaCartRoutes.ACCOUNT) {
+            AccountStoreScreen(
               uiState = uiState,
-              onCheckStatusClick = viewModel::refreshStoreLaunchStatus,
-              onNotifyMeClick = { viewModel.openNotifyMeSheet() },
-              onVisitWebsiteClick = openOfficialWebsite,
-              onShareClick = shareNovaCart,
+              onStoreUrlChanged = viewModel::onStoreUrlInputChanged,
+              onSaveAndSyncStore = viewModel::saveAndSyncStoreUrl,
+              onOpenCustomerAccount = viewModel::openCustomerAccountPortal,
+              onOpenOrdersPortal = viewModel::openOrdersPortal,
+              onOpenWebsitePortal = viewModel::openStorefrontWebsite,
+              onReopenOrderUrl = viewModel::reopenOrderUrl,
+              onShareApp = shareNovaCart,
             )
           }
         }
       }
     }
 
-    NotifyMeBottomSheet(
-      visible = uiState.isNotifySheetVisible,
-      email = uiState.notifyEmailInput,
-      fullName = uiState.notifyNameInput,
-      emailError = uiState.notifyEmailError,
-      categories = uiState.categories,
-      selectedCategoryIds = uiState.notifySelectedCategoryIds,
-      isAlreadySubscribed = uiState.registration.isSubscribed,
-      justSaved = uiState.notifyJustSaved,
-      onEmailChange = viewModel::onNotifyEmailChanged,
-      onNameChange = viewModel::onNotifyNameChanged,
-      onToggleCategory = viewModel::toggleNotifyCategorySelection,
-      onSubmit = viewModel::submitNotifyMe,
-      onUnsubscribe = viewModel::unsubscribeLaunchAlert,
-      onDismiss = viewModel::closeNotifyMeSheet,
+    val selectedProduct = uiState.selectedProductForDetail
+    ProductDetailSheet(
+      product = selectedProduct,
+      isWishlisted =
+        selectedProduct != null && uiState.wishlistIds.contains(selectedProduct.id.toString()),
+      onToggleWishlist = viewModel::toggleWishlist,
+      onAddToCart = viewModel::addToCart,
+      onBuyNow = viewModel::buyNowSingleProduct,
+      onDismiss = viewModel::closeProductDetail,
     )
 
-    CategoryPreviewSheet(
-      category = uiState.selectedCategoryForPreview,
-      isSubscribedToApp = uiState.registration.isSubscribed,
-      isInterestedInCategory =
-        uiState.selectedCategoryForPreview?.let {
-          uiState.registration.interestedCategoryIds.contains(it.id)
-        } ?: false,
-      onToggleCategoryAlert = viewModel::toggleCategoryAlertFromPreview,
-      onDismiss = viewModel::closeCategoryPreview,
+    ShopifyWebPortalDialog(
+      portalRequest = uiState.activeWebPortal,
+      onOrderCompleted = viewModel::onShopifyOrderCompleted,
+      onDismiss = viewModel::closeWebPortal,
     )
-
-    uiState.inspectedLockedFeature?.let { feature ->
-      LockedFeatureDialog(
-        feature = feature,
-        onNotifyMe = {
-          viewModel.dismissLockedFeatureDialog()
-          viewModel.openNotifyMeSheet()
-        },
-        onDismiss = viewModel::dismissLockedFeatureDialog,
-      )
-    }
 
     LaunchSplashOverlay(
       visible = uiState.showLaunchSplash,
@@ -340,48 +377,23 @@ fun NovaCartAppRoot(
 }
 
 @Composable
-private fun LockedFeatureDialog(
-  feature: FutureFeature,
-  onNotifyMe: () -> Unit,
-  onDismiss: () -> Unit,
+private fun NavDestinationIcon(
+  destination: NavDestination,
+  selected: Boolean,
+  cartItemCount: Int,
 ) {
-  AlertDialog(
-    onDismissRequest = onDismiss,
-    containerColor = PureWhite,
-    icon = {
-      Icon(
-        imageVector = Icons.Outlined.Lock,
-        contentDescription = "Feature disabled until launch",
-        tint = NovaCoral,
-      )
-    },
-    title = {
-      Text(
-        text = "${feature.title} • Coming at Launch",
-        style = MaterialTheme.typography.titleLarge,
-        color = ObsidianInk,
-      )
-    },
-    text = {
-      Text(
-        text =
-          "${feature.description}\n\nIntegration ready: ${feature.shopifyBridge}. This feature stays disabled until mynovacart.in officially launches.",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MutedSlate,
-      )
-    },
-    confirmButton = {
-      Button(
-        onClick = onNotifyMe,
-        colors = ButtonDefaults.buttonColors(containerColor = NovaCoral, contentColor = PureWhite),
-      ) {
-        Text("Notify Me")
+  val iconVector = if (selected) destination.selectedIcon else destination.unselectedIcon
+  if (destination.route == NovaCartRoutes.CART && cartItemCount > 0) {
+    BadgedBox(
+      badge = {
+        Badge(containerColor = NovaCoral, contentColor = PureWhite) {
+          Text(if (cartItemCount > 99) "99+" else cartItemCount.toString())
+        }
       }
-    },
-    dismissButton = {
-      TextButton(onClick = onDismiss) {
-        Text("Close", color = ObsidianInk)
-      }
-    },
-  )
+    ) {
+      Icon(imageVector = iconVector, contentDescription = destination.label)
+    }
+  } else {
+    Icon(imageVector = iconVector, contentDescription = destination.label)
+  }
 }

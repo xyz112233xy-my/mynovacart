@@ -14,41 +14,51 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Headers
 import retrofit2.http.POST
-import retrofit2.http.Path
+import retrofit2.http.Url
 
 interface ShopifyStorefrontService {
 
-  @GET("/")
-  suspend fun pingStorefront(): Response<ResponseBody>
+  @GET
+  suspend fun pingUrl(@Url url: String): Response<ResponseBody>
 
-  @GET("pages/app-config.json")
-  suspend fun fetchRemoteAppConfig(): Response<RemoteAppConfig>
+  @Headers("Accept: application/json")
+  @GET
+  suspend fun fetchProductsJson(@Url url: String): Response<ShopifyProductsJsonResponse>
+
+  @Headers("Accept: application/json")
+  @GET
+  suspend fun fetchCollectionsJson(@Url url: String): Response<ShopifyCollectionsJsonResponse>
+
+  @Headers("Accept: application/json")
+  @GET
+  suspend fun fetchRemoteAppConfig(@Url url: String): Response<RemoteAppConfig>
 
   @Headers("Content-Type: application/json", "Accept: application/json")
-  @POST("api/{apiVersion}/graphql.json")
+  @POST
   suspend fun queryStorefrontGraphQl(
-    @Path("apiVersion") apiVersion: String,
+    @Url url: String,
     @Header("X-Shopify-Storefront-Access-Token") storefrontAccessToken: String,
     @Body request: ShopifyGraphQlRequest,
   ): Response<ShopifyGraphQlResponse>
 
   companion object {
-    const val BASE_URL = "https://mynovacart.in/"
+    const val DEFAULT_BASE_URL = "https://mynovacart.in/"
 
     fun create(): ShopifyStorefrontService {
       val logging =
         HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
       val client =
         OkHttpClient.Builder()
-          .connectTimeout(8, TimeUnit.SECONDS)
-          .readTimeout(8, TimeUnit.SECONDS)
+          .connectTimeout(12, TimeUnit.SECONDS)
+          .readTimeout(15, TimeUnit.SECONDS)
+          .followRedirects(true)
           .addInterceptor(logging)
           .build()
 
       val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
 
       return Retrofit.Builder()
-        .baseUrl(BASE_URL)
+        .baseUrl(DEFAULT_BASE_URL)
         .client(client)
         .addConverterFactory(MoshiConverterFactory.create(moshi))
         .build()

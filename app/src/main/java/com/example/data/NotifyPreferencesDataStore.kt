@@ -9,7 +9,13 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.model.CartItem
 import com.example.model.NotifyMeRegistration
+import com.example.model.NovaCartCatalogBlueprint
+import com.example.model.OrderRecord
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -25,7 +31,17 @@ class NotifyPreferencesDataStore(private val context: Context) {
     val IS_SUBSCRIBED = booleanPreferencesKey("notify_is_subscribed")
     val REGISTERED_AT = longPreferencesKey("notify_registered_at")
     val LAST_CHECKED_AT = longPreferencesKey("store_last_checked_at")
+    val STORE_URL = stringPreferencesKey("shopify_store_url")
+    val WISHLIST_IDS = stringSetPreferencesKey("wishlist_product_ids")
+    val CART_ITEMS_JSON = stringPreferencesKey("shopping_cart_json")
+    val ORDER_HISTORY_JSON = stringPreferencesKey("order_history_json")
   }
+
+  private val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
+  private val cartListType = Types.newParameterizedType(List::class.java, CartItem::class.java)
+  private val cartAdapter = moshi.adapter<List<CartItem>>(cartListType)
+  private val orderListType = Types.newParameterizedType(List::class.java, OrderRecord::class.java)
+  private val orderAdapter = moshi.adapter<List<OrderRecord>>(orderListType)
 
   val registrationFlow: Flow<NotifyMeRegistration> =
     context.novaCartDataStore.data.map { prefs ->
@@ -38,8 +54,28 @@ class NotifyPreferencesDataStore(private val context: Context) {
       )
     }
 
-  val lastCheckedEpochMsFlow: Flow<Long?> =
-    context.novaCartDataStore.data.map { prefs -> prefs[Keys.LAST_CHECKED_AT] }
+  val storeUrlFlow: Flow<String> =
+    context.novaCartDataStore.data.map { prefs ->
+      prefs[Keys.STORE_URL]?.takeIf { it.isNotBlank() }
+        ?: NovaCartCatalogBlueprint.OFFICIAL_WEBSITE_URL
+    }
+
+  val wishlistIdsFlow: Flow<Set<String>> =
+    context.novaCartDataStore.data.map { prefs -> prefs[Keys.WISHLIST_IDS].orEmpty() }
+
+  val cartItemsFlow: Flow<List<CartItem>> =
+    context.novaCartDataStore.data.map { prefs ->
+      val raw = prefs[Keys.CART_ITEMS_JSON]
+      if (raw.isNullOrBlank()) emptyList()
+      else runCatching { cartAdapter.fromJson(raw) }.getOrNull().orEmpty()
+    }
+
+  val orderHistoryFlow: Flow<List<OrderRecord>> =
+    context.novaCartDataStore.data.map { prefs ->
+      val raw = prefs[Keys.ORDER_HISTORY_JSON]
+      if (raw.isNullOrBlank()) emptyList()
+      else runCatching { orderAdapter.fromJson(raw) }.getOrNull().orEmpty()
+    }
 
   suspend fun saveNotifyRegistration(
     email: String,
@@ -75,5 +111,37 @@ class NotifyPreferencesDataStore(private val context: Context) {
 
   suspend fun recordStoreCheckTimestamp(epochMs: Long) {
     context.novaCartDataStore.edit { prefs -> prefs[Keys.LAST_CHECKED_AT] = epochMs }
+  }
+
+  suspend fun saveStoreUrl(url: String) {
+    context.novaCartDataStore.edit { prefs -> prefs[Keys.STORE_URL] = url }
+  }
+
+  suspend fun toggleWishlist(productId: Long) {
+    val key = productId.toString()
+    context.novaCartDataStore.edit { prefs ->
+      val current = prefs[Keys.WISHLIST_IDS].orEmpty().toMutableSet()
+      if (!current.add(key)) {
+        current.remove(key)
+      }
+      prefs[Keys.WISHLIST_IDS] = current
+    }
+  }
+
+  suspend fun saveCartItems(items: List<CartItem>) {
+    context.novaCartDataStore.edit { prefs ->
+      prefs[Keys.CART_ITEMS_JSON] = cartAdapter.toJson(items)
+    }
+  }
+
+  suspend fun appendOrderRecord(order: OrderRecord) {
+    context.novaCartDataStore.edit { prefs ->
+      val existing =
+        prefs[Keys.ORDER_HISTORY_JSON]
+          ?.takeIf { it.isNotBlank() }
+          ?.let { runCatching { orderAdapter.fromJson(it) }.getOrNull() }
+          .orEmpty()
+      prefs[Keys.ORDER_HISTORY_JSON] = orderAdapter.toJson(listOf(order) + existing)
+    }
   }
 }
