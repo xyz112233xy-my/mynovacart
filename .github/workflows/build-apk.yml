@@ -46,7 +46,7 @@ jobs:
           [ -f .env ] || touch .env
 
       - name: Build Debug APK
-        run: gradle :app:assembleDebug --stacktrace
+        run: gradle :app:assembleDebug -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8" --stacktrace
 
       - name: Copy APK with brand name
         run: cp app/build/outputs/apk/debug/app-debug.apk nova-cart.apk
@@ -58,6 +58,7 @@ jobs:
           path: nova-cart.apk
 
       - name: Publish GitHub Release for Direct Mobile & LinkedIn Link
+        continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0-latest
