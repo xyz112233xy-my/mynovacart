@@ -1,7 +1,6 @@
 package com.example
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -58,6 +57,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.ai.configureAppCheck
 import com.example.ui.components.LaunchSplashOverlay
+import com.example.ui.components.OwnerPinGateDialog
+import com.example.ui.components.OwnerStudioDialog
 import com.example.ui.components.ProductDetailSheet
 import com.example.ui.components.ShopifyWebPortalDialog
 import com.example.ui.screens.AccountStoreScreen
@@ -296,7 +297,6 @@ fun NovaCartAppRoot(
               onQuickAddProduct = { product -> viewModel.addToCart(product) },
               onRefreshStore = viewModel::refreshStoreCatalog,
               onOpenWebsitePortal = viewModel::openStorefrontWebsite,
-              onOpenStoreSettings = { navigateToRoute(NovaCartRoutes.ACCOUNT) },
               onOpenOrdersPortal = viewModel::openOrdersPortal,
             )
           }
@@ -312,7 +312,6 @@ fun NovaCartAppRoot(
               onToggleWishlist = viewModel::toggleWishlist,
               onQuickAddProduct = { product -> viewModel.addToCart(product) },
               onSyncStore = viewModel::refreshStoreCatalog,
-              onOpenStoreSettings = { navigateToRoute(NovaCartRoutes.ACCOUNT) },
             )
           }
 
@@ -339,13 +338,12 @@ fun NovaCartAppRoot(
           composable(NovaCartRoutes.ACCOUNT) {
             AccountStoreScreen(
               uiState = uiState,
-              onStoreUrlChanged = viewModel::onStoreUrlInputChanged,
-              onSaveAndSyncStore = viewModel::saveAndSyncStoreUrl,
               onOpenCustomerAccount = viewModel::openCustomerAccountPortal,
               onOpenOrdersPortal = viewModel::openOrdersPortal,
               onOpenWebsitePortal = viewModel::openStorefrontWebsite,
               onReopenOrderUrl = viewModel::reopenOrderUrl,
               onShareApp = shareNovaCart,
+              onOpenOwnerStudio = viewModel::openOwnerAccessGate,
             )
           }
         }
@@ -367,6 +365,28 @@ fun NovaCartAppRoot(
       portalRequest = uiState.activeWebPortal,
       onOrderCompleted = viewModel::onShopifyOrderCompleted,
       onDismiss = viewModel::closeWebPortal,
+    )
+
+    OwnerPinGateDialog(
+      visible = uiState.isOwnerGateVisible,
+      isPinSet = uiState.isOwnerPinSet,
+      errorText = uiState.ownerPinError,
+      onSubmitPin = viewModel::submitOwnerPin,
+      onDismiss = viewModel::dismissOwnerAccessGate,
+    )
+
+    OwnerStudioDialog(
+      uiState = uiState,
+      onStoreUrlChanged = viewModel::onStoreUrlInputChanged,
+      onSaveAndSyncStore = viewModel::saveAndSyncStoreUrl,
+      onAdminDomainChanged = viewModel::onOwnerAdminDomainChanged,
+      onAdminTokenChanged = viewModel::onOwnerAdminTokenChanged,
+      onConnectAdminApi = viewModel::saveOwnerAdminConnection,
+      onDisconnectAdminApi = viewModel::disconnectOwnerAdmin,
+      onCreateProduct = viewModel::createProductFromOwnerStudio,
+      onRefreshOrders = viewModel::refreshOwnerOrders,
+      onOpenFullShopifyAdmin = viewModel::openShopifyAdminWebPortal,
+      onDismiss = viewModel::closeOwnerStudio,
     )
 
     LaunchSplashOverlay(

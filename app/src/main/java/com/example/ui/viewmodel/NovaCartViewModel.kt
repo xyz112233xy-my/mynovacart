@@ -6,6 +6,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.NotifyPreferencesDataStore
 import com.example.data.NovaCartRepository
+import com.example.data.OwnerAdminConnectionConfig
+import com.example.data.ShopifyAdminOrderDto
 import com.example.model.CartItem
 import com.example.model.FutureFeature
 import com.example.model.LaunchCategory
@@ -51,6 +53,18 @@ data class NovaCartUiState(
   val selectedProductForDetail: ShopProduct? = null,
   val activeWebPortal: WebPortalRequest? = null,
   val statusMessageBanner: String? = null,
+  // Owner Studio (protected behind Owner PIN, never shown in normal customer flows)
+  val isOwnerPinSet: Boolean = false,
+  val isOwnerGateVisible: Boolean = false,
+  val isOwnerStudioVisible: Boolean = false,
+  val ownerPinError: String? = null,
+  val ownerAdminConfig: OwnerAdminConnectionConfig = OwnerAdminConnectionConfig(),
+  val ownerAdminDomainInput: String = "",
+  val ownerAdminTokenInput: String = "",
+  val isOwnerActionBusy: Boolean = false,
+  val ownerActionFeedback: String? = null,
+  val ownerAdminOrders: List<ShopifyAdminOrderDto> = emptyList(),
+  // Legacy optional registration fields
   val isNotifySheetVisible: Boolean = false,
   val notifyEmailInput: String = "",
   val notifyNameInput: String = "",
@@ -142,6 +156,24 @@ class NovaCartViewModel(application: Application) : AndroidViewModel(application
     viewModelScope.launch {
       repository.orderHistoryFlow.collect { orders ->
         _uiState.update { it.copy(orderHistory = orders) }
+      }
+    }
+
+    viewModelScope.launch {
+      repository.hasOwnerPinFlow.collect { hasPin ->
+        _uiState.update { it.copy(isOwnerPinSet = hasPin) }
+      }
+    }
+
+    viewModelScope.launch {
+      repository.ownerAdminConfigFlow.collect { config ->
+        _uiState.update {
+          it.copy(
+            ownerAdminConfig = config,
+            ownerAdminDomainInput = config.myShopifyDomain,
+            ownerAdminTokenInput = config.adminAccessToken,
+          )
+        }
       }
     }
   }
@@ -393,6 +425,195 @@ class NovaCartViewModel(application: Application) : AndroidViewModel(application
 
   fun consumeStatusBanner() {
     _uiState.update { it.copy(statusMessageBanner = null) }
+  }
+
+  // ---- Owner Studio (hidden store management mode) ----
+  fun openOwnerAccessGate() {
+    _uiState.update {
+      it.copy(isOwnerGateVisible = true, ownerPinError = null)
+    }
+  }
+
+  fun dismissOwnerAccessGate() {
+    _uiState.update { it.copy(isOwnerGateVisible = false, ownerPinError = null) }
+  }
+
+  fun submitOwnerPin(rawPin: String) {
+    val pin = rawPin.trim()
+    if (pin.length < 4) {
+      _uiState.update { it.copy(ownerPinError = "Enter at least 4 digits for Owner PIN.") }
+      return
+    }
+    viewModelScope.launch {
+      if (!_uiState.value.isOwnerPinSet) {
+        repository.setOwnerPin(pin)
+        _uiState.update {
+          it.copy(
+            isOwnerGateVisible = false,
+            isOwnerStudioVisible = true,
+            ownerPinError = null,
+            ownerActionFeedback = "Owner PIN created on this device.",
+          )
+        }
+      } else if (repository.verifyOwnerPin(pin)) {
+        _uiState.update {
+          it.copy(
+            isOwnerGateVisible = false,
+            isOwnerStudioVisible = true,
+            ownerPinError = null,
+          )
+        }
+        if (_uiState.value.ownerAdminConfig.isConfigured) {
+          refreshOwnerOrders()
+        }
+      } else {
+        _uiState.update { it.copy(ownerPinError = "Incorrect Owner PIN.") }
+      }
+    }
+  }
+
+  fun closeOwnerStudio() {
+    _uiState.update { it.copy(isOwnerStudioVisible = false, ownerActionFeedback = null) }
+  }
+
+  fun onOwnerAdminDomainChanged(value: String) {
+    _uiState.update { it.copy(ownerAdminDomainInput = value) }
+  }
+
+  fun onOwnerAdminTokenChanged(value: String) {
+    _uiState.update { it.copy(ownerAdminTokenInput = value) }
+  }
+
+  fun saveOwnerAdminConnection() {
+    val state = _uiState.value
+    viewModelScope.launch {
+      _uiState.update { it.copy(isOwnerActionBusy = true, ownerActionFeedback = null) }
+      val result =
+        repository.saveOwnerAdminConfig(
+          rawDomain = state.ownerAdminDomainInput,
+          rawToken = state.ownerAdminTokenInput,
+        )
+      result.fold(
+        onSuccess = { savedConfig ->
+          _uiState.update {
+            it.copy(
+              isOwnerActionBusy = false,
+              ownerActionFeedback = "Connected Admin API to ${savedConfig.myShopifyDomain}",
+            )
+          }
+          refreshOwnerOrders()
+        },
+        onFailure = { err ->
+          _uiState.update {
+            it.copy(
+              isOwnerActionBusy = false,
+              ownerActionFeedback = err.localizedMessage ?: "Failed to save connection.",
+            )
+          }
+        },
+      )
+    }
+  }
+
+  fun disconnectOwnerAdmin() {
+    viewModelScope.launch {
+      repository.clearOwnerAdminConfig()
+      _uiState.update {
+        it.copy(
+          ownerAdminDomainInput = "",
+          ownerAdminTokenInput = "",
+          ownerAdminOrders = emptyList(),
+          ownerActionFeedback = "Admin API disconnected from this device.",
+        )
+      }
+    }
+  }
+
+  fun createProductFromOwnerStudio(
+    title: String,
+    priceInput: String,
+    stockInput: String,
+    categoryTitle: String,
+    description: String,
+    onSuccessReset: () -> Unit,
+  ) {
+    val config = _uiState.value.ownerAdminConfig
+    val price = priceInput.trim().toDoubleOrNull() ?: 0.0
+    val stock = stockInput.trim().toIntOrNull() ?: 10
+    viewModelScope.launch {
+      _uiState.update { it.copy(isOwnerActionBusy = true, ownerActionFeedback = null) }
+      val res =
+        repository.createShopifyProductAsOwner(
+          config = config,
+          title = title,
+          price = price,
+          inventoryQuantity = stock,
+          categoryTitle = categoryTitle,
+          description = description,
+        )
+      res.fold(
+        onSuccess = { created ->
+          _uiState.update {
+            it.copy(
+              isOwnerActionBusy = false,
+              ownerActionFeedback = "Published \"${created.title}\" to Shopify!",
+            )
+          }
+          onSuccessReset()
+          syncShopifyCatalog(_uiState.value.storeStatus.storeUrl)
+        },
+        onFailure = { err ->
+          _uiState.update {
+            it.copy(
+              isOwnerActionBusy = false,
+              ownerActionFeedback = err.localizedMessage ?: "Could not create product.",
+            )
+          }
+        },
+      )
+    }
+  }
+
+  fun refreshOwnerOrders() {
+    val config = _uiState.value.ownerAdminConfig
+    if (!config.isConfigured) return
+    viewModelScope.launch {
+      _uiState.update { it.copy(isOwnerActionBusy = true) }
+      val res = repository.fetchShopifyOrdersAsOwner(config)
+      res.fold(
+        onSuccess = { orders ->
+          _uiState.update {
+            it.copy(isOwnerActionBusy = false, ownerAdminOrders = orders)
+          }
+        },
+        onFailure = { err ->
+          _uiState.update {
+            it.copy(
+              isOwnerActionBusy = false,
+              ownerActionFeedback = err.localizedMessage,
+            )
+          }
+        },
+      )
+    }
+  }
+
+  fun openShopifyAdminWebPortal() {
+    val adminHost = _uiState.value.ownerAdminConfig.myShopifyDomain
+    val adminUrl =
+      if (adminHost.isNotBlank()) "https://$adminHost/admin"
+      else "https://admin.shopify.com"
+    _uiState.update {
+      it.copy(
+        isOwnerStudioVisible = false,
+        activeWebPortal =
+          WebPortalRequest(
+            title = "Shopify Owner Admin",
+            url = adminUrl,
+            isCheckout = false,
+          ),
+      )
+    }
   }
 
   // Optional Notify Me preferences support

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -27,7 +26,6 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -38,7 +36,6 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -70,7 +67,6 @@ fun CatalogScreen(
   onToggleWishlist: (Long) -> Unit,
   onQuickAddProduct: (ShopProduct) -> Unit,
   onSyncStore: () -> Unit,
-  onOpenStoreSettings: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val filtered = uiState.filteredProducts
@@ -243,7 +239,7 @@ fun CatalogScreen(
               Text(
                 text =
                   when {
-                    uiState.products.isEmpty() -> uiState.storeStatus.statusHeadline
+                    uiState.products.isEmpty() -> "Store catalog updating"
                     uiState.wishlistOnly -> "Your wishlist is empty"
                     else -> "No matching products found"
                   },
@@ -253,7 +249,8 @@ fun CatalogScreen(
               Text(
                 text =
                   when {
-                    uiState.products.isEmpty() -> uiState.storeStatus.statusDetail
+                    uiState.products.isEmpty() ->
+                      "Published items from mynovacart.in will appear here automatically."
                     uiState.wishlistOnly -> "Tap the heart icon on any product to save it here."
                     else -> "Try clearing your search or switching departments."
                   },
@@ -261,24 +258,12 @@ fun CatalogScreen(
                 color = MutedSlate,
               )
               if (uiState.products.isEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                  Button(
-                    onClick = onSyncStore,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = ObsidianInk, contentColor = PureWhite),
-                  ) {
-                    Text("Sync Catalog")
-                  }
-                  OutlinedButton(
-                    onClick = onOpenStoreSettings,
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, ObsidianInk),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ObsidianInk),
-                  ) {
-                    Icon(Icons.Outlined.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Store URL")
-                  }
+                Button(
+                  onClick = onSyncStore,
+                  shape = RoundedCornerShape(12.dp),
+                  colors = ButtonDefaults.buttonColors(containerColor = ObsidianInk, contentColor = PureWhite),
+                ) {
+                  Text("Refresh Catalog")
                 }
               }
             }

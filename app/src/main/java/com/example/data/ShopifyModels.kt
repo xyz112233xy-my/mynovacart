@@ -115,3 +115,47 @@ data class ShopifyMoney(
   @Json(name = "amount") val amount: String,
   @Json(name = "currencyCode") val currencyCode: String,
 )
+
+// Owner Studio: Shopify Admin REST API DTOs (authenticated solely via owner's device-local token)
+data class ShopifyAdminCreateProductRequest(
+  @Json(name = "product") val product: ShopifyAdminProductInput,
+)
+
+data class ShopifyAdminProductInput(
+  @Json(name = "title") val title: String,
+  @Json(name = "body_html") val bodyHtml: String,
+  @Json(name = "vendor") val vendor: String = "NOVA CART",
+  @Json(name = "product_type") val productType: String = "",
+  @Json(name = "tags") val tags: String = "",
+  @Json(name = "status") val status: String = "active",
+  @Json(name = "variants") val variants: List<ShopifyAdminVariantInput>,
+)
+
+data class ShopifyAdminVariantInput(
+  @Json(name = "price") val price: String,
+  @Json(name = "inventory_management") val inventoryManagement: String = "shopify",
+  @Json(name = "inventory_quantity") val inventoryQuantity: Int = 10,
+)
+
+data class ShopifyAdminProductResponse(
+  @Json(name = "product") val product: ShopifyAdminCreatedProduct? = null,
+)
+
+data class ShopifyAdminCreatedProduct(
+  @Json(name = "id") val id: Long,
+  @Json(name = "title") val title: String = "",
+)
+
+data class ShopifyAdminOrdersResponse(
+  @Json(name = "orders") val orders: List<ShopifyAdminOrderDto> = emptyList(),
+)
+
+data class ShopifyAdminOrderDto(
+  @Json(name = "id") val id: Long,
+  @Json(name = "name") val name: String = "",
+  @Json(name = "total_price") val totalPrice: String = "0.00",
+  @Json(name = "financial_status") val financialStatus: String? = null,
+  @Json(name = "fulfillment_status") val fulfillmentStatus: String? = null,
+  @Json(name = "created_at") val createdAt: String = "",
+  @Json(name = "email") val email: String? = null,
+)

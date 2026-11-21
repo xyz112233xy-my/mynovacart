@@ -27,6 +27,8 @@ class NovaCartRepository(
   val wishlistIdsFlow: Flow<Set<String>> = preferencesStore.wishlistIdsFlow
   val cartItemsFlow: Flow<List<CartItem>> = preferencesStore.cartItemsFlow
   val orderHistoryFlow: Flow<List<OrderRecord>> = preferencesStore.orderHistoryFlow
+  val hasOwnerPinFlow: Flow<Boolean> = preferencesStore.hasOwnerPinFlow
+  val ownerAdminConfigFlow: Flow<OwnerAdminConnectionConfig> = preferencesStore.ownerAdminConfigFlow
 
   suspend fun saveNotifyRegistration(email: String, fullName: String, categoryIds: Set<String>) {
     preferencesStore.saveNotifyRegistration(email = email, fullName = fullName, categoryIds = categoryIds)
@@ -57,6 +59,125 @@ class NovaCartRepository(
   suspend fun appendOrderRecord(order: OrderRecord) {
     preferencesStore.appendOrderRecord(order)
   }
+
+  suspend fun setOwnerPin(pin: String) {
+    preferencesStore.setOwnerPin(pin)
+  }
+
+  suspend fun verifyOwnerPin(pin: String): Boolean {
+    return preferencesStore.verifyOwnerPin(pin)
+  }
+
+  suspend fun saveOwnerAdminConfig(rawDomain: String, rawToken: String): Result<OwnerAdminConnectionConfig> {
+    val cleanDomain = normalizeShopifyAdminHost(rawDomain)
+      ?: return Result.failure(IllegalArgumentException("Enter a valid Shopify domain (e.g. yourstore.myshopify.com)."))
+    val cleanToken = rawToken.trim()
+    if (cleanToken.isEmpty()) {
+      return Result.failure(IllegalArgumentException("Enter your Shopify Admin API access token."))
+    }
+    preferencesStore.saveOwnerAdminConfig(cleanDomain, cleanToken)
+    return Result.success(OwnerAdminConnectionConfig(cleanDomain, cleanToken))
+  }
+
+  suspend fun clearOwnerAdminConfig() {
+    preferencesStore.clearOwnerAdminConfig()
+  }
+
+  suspend fun createShopifyProductAsOwner(
+    config: OwnerAdminConnectionConfig,
+    title: String,
+    price: Double,
+    inventoryQuantity: Int,
+    categoryTitle: String,
+    description: String,
+  ): Result<ShopifyAdminCreatedProduct> =
+    withContext(Dispatchers.IO) {
+      val host = normalizeShopifyAdminHost(config.myShopifyDomain)
+        ?: return@withContext Result.failure(IllegalArgumentException("Invalid Shopify Admin host."))
+      val token = config.adminAccessToken.trim()
+      if (token.isEmpty()) {
+        return@withContext Result.failure(IllegalArgumentException("Admin access token is missing."))
+      }
+      val cleanTitle = title.trim()
+      if (cleanTitle.isEmpty()) {
+        return@withContext Result.failure(IllegalArgumentException("Product title is required."))
+      }
+      if (price <= 0.0) {
+        return@withContext Result.failure(IllegalArgumentException("Enter a valid price greater than 0."))
+      }
+
+      val safeDescription =
+        android.text.TextUtils.htmlEncode(description.trim()).replace("\n", "<br/>")
+      val request =
+        ShopifyAdminCreateProductRequest(
+          product =
+            ShopifyAdminProductInput(
+              title = cleanTitle,
+              bodyHtml = if (safeDescription.isNotBlank()) "<p>$safeDescription</p>" else "",
+              vendor = "NOVA CART",
+              productType = categoryTitle,
+              tags = categoryTitle,
+              status = "active",
+              variants =
+                listOf(
+                  ShopifyAdminVariantInput(
+                    price = String.format(java.util.Locale.US, "%.2f", price),
+                    inventoryManagement = "shopify",
+                    inventoryQuantity = inventoryQuantity.coerceAtLeast(0),
+                  )
+                ),
+            )
+        )
+
+      val response =
+        runCatching {
+          storefrontService.createAdminProduct(
+            url = "https://$host/admin/api/2024-10/products.json",
+            adminAccessToken = token,
+            request = request,
+          )
+        }.getOrElse { err ->
+          return@withContext Result.failure(err)
+        }
+
+      if (response.isSuccessful) {
+        val created = response.body()?.product
+        if (created != null) {
+          return@withContext Result.success(created)
+        }
+      }
+      Result.failure(
+        IllegalStateException("Shopify rejected product creation (HTTP ${response.code()}). Check Admin token scopes (write_products).")
+      )
+    }
+
+  suspend fun fetchShopifyOrdersAsOwner(
+    config: OwnerAdminConnectionConfig,
+  ): Result<List<ShopifyAdminOrderDto>> =
+    withContext(Dispatchers.IO) {
+      val host = normalizeShopifyAdminHost(config.myShopifyDomain)
+        ?: return@withContext Result.failure(IllegalArgumentException("Invalid Shopify Admin host."))
+      val token = config.adminAccessToken.trim()
+      if (token.isEmpty()) {
+        return@withContext Result.failure(IllegalArgumentException("Admin access token is missing."))
+      }
+      val response =
+        runCatching {
+          storefrontService.fetchAdminOrders(
+            url = "https://$host/admin/api/2024-10/orders.json?status=any&limit=20",
+            adminAccessToken = token,
+          )
+        }.getOrElse { err ->
+          return@withContext Result.failure(err)
+        }
+
+      if (response.isSuccessful) {
+        return@withContext Result.success(response.body()?.orders.orEmpty())
+      }
+      Result.failure(
+        IllegalStateException("Unable to load orders (HTTP ${response.code()}). Ensure read_orders scope is enabled.")
+      )
+    }
 
   suspend fun syncShopifyCatalog(rawStoreUrl: String): ShopifyCatalogSyncResult =
     withContext(Dispatchers.IO) {
@@ -196,11 +317,44 @@ class NovaCartRepository(
     fun normalizeStoreUrl(raw: String): String {
       val trimmed = raw.trim().trimEnd('/')
       if (trimmed.isEmpty()) return NovaCartCatalogBlueprint.OFFICIAL_WEBSITE_URL
-      return if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-        trimmed
-      } else {
-        "https://$trimmed"
+      val withScheme =
+        if (trimmed.startsWith("https://", ignoreCase = true)) {
+          trimmed
+        } else if (trimmed.startsWith("http://", ignoreCase = true)) {
+          "https://" + trimmed.removePrefix("http://").removePrefix("HTTP://")
+        } else {
+          "https://$trimmed"
+        }
+      val host = Uri.parse(withScheme).host?.lowercase().orEmpty()
+      if (host.isBlank() || isPrivateOrLoopbackHost(host)) {
+        return NovaCartCatalogBlueprint.OFFICIAL_WEBSITE_URL
       }
+      return "https://$host"
+    }
+
+    fun normalizeShopifyAdminHost(raw: String): String? {
+      val cleaned =
+        raw.trim()
+          .removePrefix("https://")
+          .removePrefix("http://")
+          .substringBefore("/")
+          .substringBefore("?")
+          .lowercase()
+      if (cleaned.isBlank() || !cleaned.contains(".") || isPrivateOrLoopbackHost(cleaned)) {
+        return null
+      }
+      if (!Regex("^[a-z0-9.-]+$").matches(cleaned)) return null
+      return cleaned
+    }
+
+    private fun isPrivateOrLoopbackHost(host: String): Boolean {
+      return host == "localhost" ||
+        host.startsWith("127.") ||
+        host.startsWith("10.") ||
+        host.startsWith("192.168.") ||
+        host == "169.254.169.254" ||
+        host.startsWith("172.16.") ||
+        host == "::1"
     }
 
     fun buildShopifyCheckoutUrl(

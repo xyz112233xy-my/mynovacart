@@ -2,13 +2,17 @@ package com.example
 
 import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.NovaCartRepository
 import com.example.model.CartItem
 import com.example.model.NovaCartCatalogBlueprint
+import com.example.ui.components.OwnerPinGateDialog
+import com.example.ui.screens.AccountStoreScreen
 import com.example.ui.screens.CartScreen
 import com.example.ui.screens.ConciergeScreen
 import com.example.ui.screens.ShopHomeScreen
@@ -16,6 +20,7 @@ import com.example.ui.theme.NovaCartTheme
 import com.example.ui.viewmodel.NovaCartUiState
 import com.example.ui.viewmodel.NovaConciergeUiState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -96,7 +101,18 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `shop home screen displays search bar departments and order tracking card`() {
+  fun `owner shopify admin host validator normalizes valid hosts and rejects loopback`() {
+    assertEquals(
+      "mynovacart.myshopify.com",
+      NovaCartRepository.normalizeShopifyAdminHost("https://mynovacart.myshopify.com/admin"),
+    )
+    assertNull(NovaCartRepository.normalizeShopifyAdminHost("http://localhost:8080"))
+    assertNull(NovaCartRepository.normalizeShopifyAdminHost("127.0.0.1"))
+    assertNull(NovaCartRepository.normalizeShopifyAdminHost("not a host"))
+  }
+
+  @Test
+  fun `shop home screen displays search bar departments without store url setup`() {
     composeTestRule.setContent {
       NovaCartTheme {
         ShopHomeScreen(
@@ -109,7 +125,6 @@ class ExampleRobolectricTest {
           onQuickAddProduct = {},
           onRefreshStore = {},
           onOpenWebsitePortal = {},
-          onOpenStoreSettings = {},
           onOpenOrdersPortal = {},
         )
       }
@@ -119,6 +134,51 @@ class ExampleRobolectricTest {
     composeTestRule.onNodeWithTag("home_shop_now_button").assertIsDisplayed()
     composeTestRule.onNodeWithTag("home_category_home_decor").assertIsDisplayed()
     composeTestRule.onNodeWithText("Shop by Department").assertIsDisplayed()
+    composeTestRule.onNodeWithText("Store URL").assertDoesNotExist()
+  }
+
+  @Test
+  fun `customer account screen hides store url setup and renders portal actions`() {
+    composeTestRule.setContent {
+      NovaCartTheme {
+        AccountStoreScreen(
+          uiState = NovaCartUiState(),
+          onOpenCustomerAccount = {},
+          onOpenOrdersPortal = {},
+          onOpenWebsitePortal = {},
+          onReopenOrderUrl = { _, _ -> },
+          onShareApp = {},
+          onOpenOwnerStudio = {},
+        )
+      }
+    }
+
+    composeTestRule.onNodeWithTag("open_customer_account_button").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("open_orders_portal_button").assertIsDisplayed()
+    composeTestRule.onNodeWithText("Shopify Website Connection").assertDoesNotExist()
+    composeTestRule
+      .onNodeWithTag("account_lazy_list")
+      .performScrollToNode(hasTestTag("account_version_footer"))
+    composeTestRule.onNodeWithTag("account_version_footer").assertIsDisplayed()
+  }
+
+  @Test
+  fun `owner pin gate shows create pin dialog on first run`() {
+    composeTestRule.setContent {
+      NovaCartTheme {
+        OwnerPinGateDialog(
+          visible = true,
+          isPinSet = false,
+          errorText = null,
+          onSubmitPin = {},
+          onDismiss = {},
+        )
+      }
+    }
+
+    composeTestRule.onNodeWithText("Create Owner PIN").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("owner_pin_input").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("owner_pin_submit_button").assertIsDisplayed()
   }
 
   @Test

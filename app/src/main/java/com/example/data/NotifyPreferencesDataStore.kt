@@ -1,6 +1,7 @@
 package com.example.data
 
 import android.content.Context
+import android.util.Base64
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -16,11 +17,22 @@ import com.example.model.OrderRecord
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import java.security.MessageDigest
+import java.security.SecureRandom
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.novaCartDataStore: DataStore<Preferences> by
   preferencesDataStore(name = "novacart_preferences")
+
+data class OwnerAdminConnectionConfig(
+  val myShopifyDomain: String = "",
+  val adminAccessToken: String = "",
+) {
+  val isConfigured: Boolean
+    get() = myShopifyDomain.isNotBlank() && adminAccessToken.isNotBlank()
+}
 
 class NotifyPreferencesDataStore(private val context: Context) {
 
@@ -35,6 +47,10 @@ class NotifyPreferencesDataStore(private val context: Context) {
     val WISHLIST_IDS = stringSetPreferencesKey("wishlist_product_ids")
     val CART_ITEMS_JSON = stringPreferencesKey("shopping_cart_json")
     val ORDER_HISTORY_JSON = stringPreferencesKey("order_history_json")
+    val OWNER_PIN_HASH = stringPreferencesKey("owner_pin_hash")
+    val OWNER_PIN_SALT = stringPreferencesKey("owner_pin_salt")
+    val OWNER_MYSHOPIFY_DOMAIN = stringPreferencesKey("owner_myshopify_domain")
+    val OWNER_ADMIN_TOKEN = stringPreferencesKey("owner_admin_token")
   }
 
   private val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
@@ -76,6 +92,52 @@ class NotifyPreferencesDataStore(private val context: Context) {
       if (raw.isNullOrBlank()) emptyList()
       else runCatching { orderAdapter.fromJson(raw) }.getOrNull().orEmpty()
     }
+
+  val hasOwnerPinFlow: Flow<Boolean> =
+    context.novaCartDataStore.data.map { prefs ->
+      !prefs[Keys.OWNER_PIN_HASH].isNullOrBlank() && !prefs[Keys.OWNER_PIN_SALT].isNullOrBlank()
+    }
+
+  val ownerAdminConfigFlow: Flow<OwnerAdminConnectionConfig> =
+    context.novaCartDataStore.data.map { prefs ->
+      OwnerAdminConnectionConfig(
+        myShopifyDomain = prefs[Keys.OWNER_MYSHOPIFY_DOMAIN].orEmpty(),
+        adminAccessToken = prefs[Keys.OWNER_ADMIN_TOKEN].orEmpty(),
+      )
+    }
+
+  suspend fun setOwnerPin(pin: String) {
+    val saltBytes = ByteArray(16).also { SecureRandom().nextBytes(it) }
+    val saltB64 = Base64.encodeToString(saltBytes, Base64.NO_WRAP)
+    val hashB64 = hashPin(pin = pin, saltBytes = saltBytes)
+    context.novaCartDataStore.edit { prefs ->
+      prefs[Keys.OWNER_PIN_SALT] = saltB64
+      prefs[Keys.OWNER_PIN_HASH] = hashB64
+    }
+  }
+
+  suspend fun verifyOwnerPin(pin: String): Boolean {
+    val prefs = context.novaCartDataStore.data.first()
+    val saltB64 = prefs[Keys.OWNER_PIN_SALT] ?: return false
+    val expectedHash = prefs[Keys.OWNER_PIN_HASH] ?: return false
+    val saltBytes = runCatching { Base64.decode(saltB64, Base64.NO_WRAP) }.getOrNull() ?: return false
+    val actualHash = hashPin(pin = pin, saltBytes = saltBytes)
+    return MessageDigest.isEqual(actualHash.toByteArray(), expectedHash.toByteArray())
+  }
+
+  suspend fun saveOwnerAdminConfig(domain: String, token: String) {
+    context.novaCartDataStore.edit { prefs ->
+      prefs[Keys.OWNER_MYSHOPIFY_DOMAIN] = domain
+      prefs[Keys.OWNER_ADMIN_TOKEN] = token
+    }
+  }
+
+  suspend fun clearOwnerAdminConfig() {
+    context.novaCartDataStore.edit { prefs ->
+      prefs.remove(Keys.OWNER_MYSHOPIFY_DOMAIN)
+      prefs.remove(Keys.OWNER_ADMIN_TOKEN)
+    }
+  }
 
   suspend fun saveNotifyRegistration(
     email: String,
@@ -143,5 +205,12 @@ class NotifyPreferencesDataStore(private val context: Context) {
           .orEmpty()
       prefs[Keys.ORDER_HISTORY_JSON] = orderAdapter.toJson(listOf(order) + existing)
     }
+  }
+
+  private fun hashPin(pin: String, saltBytes: ByteArray): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    digest.update(saltBytes)
+    digest.update(pin.trim().toByteArray(Charsets.UTF_8))
+    return Base64.encodeToString(digest.digest(), Base64.NO_WRAP)
   }
 }

@@ -41,6 +41,21 @@ interface ShopifyStorefrontService {
     @Body request: ShopifyGraphQlRequest,
   ): Response<ShopifyGraphQlResponse>
 
+  @Headers("Content-Type: application/json", "Accept: application/json")
+  @POST
+  suspend fun createAdminProduct(
+    @Url url: String,
+    @Header("X-Shopify-Access-Token") adminAccessToken: String,
+    @Body request: ShopifyAdminCreateProductRequest,
+  ): Response<ShopifyAdminProductResponse>
+
+  @Headers("Accept: application/json")
+  @GET
+  suspend fun fetchAdminOrders(
+    @Url url: String,
+    @Header("X-Shopify-Access-Token") adminAccessToken: String,
+  ): Response<ShopifyAdminOrdersResponse>
+
   companion object {
     const val DEFAULT_BASE_URL = "https://mynovacart.in/"
 

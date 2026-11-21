@@ -30,7 +30,6 @@ import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.ShoppingBag
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -81,7 +80,6 @@ fun ShopHomeScreen(
   onQuickAddProduct: (ShopProduct) -> Unit,
   onRefreshStore: () -> Unit,
   onOpenWebsitePortal: () -> Unit,
-  onOpenStoreSettings: () -> Unit,
   onOpenOrdersPortal: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -132,7 +130,7 @@ fun ShopHomeScreen(
                   when {
                     status.isChecking -> "SYNCING..."
                     status.syncedProductCount > 0 -> "LIVE • ${status.syncedProductCount} ITEMS"
-                    else -> "STORE CONNECTED"
+                    else -> "OFFICIAL STORE"
                   },
                 style = MaterialTheme.typography.labelSmall,
                 color = if (status.syncedProductCount > 0) EmeraldLive else NovaCoral,
@@ -215,7 +213,7 @@ fun ShopHomeScreen(
                 color = PureWhite,
               )
               Text(
-                text = "Order directly from mynovacart.in",
+                text = "Shop directly on mynovacart.in",
                 style = MaterialTheme.typography.bodySmall,
                 color = PureWhite.copy(alpha = 0.85f),
               )
@@ -292,7 +290,7 @@ fun ShopHomeScreen(
         }
       }
 
-      // Live Shopify Catalog Section (or Real Store Sync Status if 0 products published yet)
+      // Featured Store Products
       item {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
           Row(
@@ -301,7 +299,7 @@ fun ShopHomeScreen(
             verticalAlignment = Alignment.CenterVertically,
           ) {
             Text(
-              text = "Live from Shopify",
+              text = "Featured Arrivals",
               style = MaterialTheme.typography.titleLarge,
               color = ObsidianInk,
             )
@@ -315,10 +313,10 @@ fun ShopHomeScreen(
               if (status.isChecking) {
                 CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
               } else {
-                Icon(Icons.Outlined.Refresh, contentDescription = "Sync", modifier = Modifier.size(15.dp))
+                Icon(Icons.Outlined.Refresh, contentDescription = "Refresh", modifier = Modifier.size(15.dp))
               }
               Spacer(modifier = Modifier.width(6.dp))
-              Text("Sync", style = MaterialTheme.typography.labelMedium, color = ObsidianInk)
+              Text("Refresh", style = MaterialTheme.typography.labelMedium, color = ObsidianInk)
             }
           }
 
@@ -339,13 +337,16 @@ fun ShopHomeScreen(
                 ) {
                   Icon(Icons.Outlined.ShoppingBag, contentDescription = null, tint = NovaCoral)
                   Text(
-                    text = status.statusHeadline,
+                    text =
+                      if (status.isChecking) "Loading NOVA CART catalog..."
+                      else "Store catalog updating",
                     style = MaterialTheme.typography.titleMedium,
                     color = ObsidianInk,
                   )
                 }
                 Text(
-                  text = status.statusDetail,
+                  text =
+                    "New products from mynovacart.in appear here automatically as soon as they are published.",
                   style = MaterialTheme.typography.bodyMedium,
                   color = MutedSlate,
                 )
@@ -361,18 +362,18 @@ fun ShopHomeScreen(
                   ) {
                     Icon(Icons.Outlined.Language, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Open Store", style = MaterialTheme.typography.labelLarge)
+                    Text("Visit Store", style = MaterialTheme.typography.labelLarge)
                   }
                   OutlinedButton(
-                    onClick = onOpenStoreSettings,
+                    onClick = onRefreshStore,
                     modifier = Modifier.weight(1f).height(46.dp),
                     shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, ObsidianInk),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = ObsidianInk),
                   ) {
-                    Icon(Icons.Outlined.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Store URL", style = MaterialTheme.typography.labelLarge)
+                    Text("Refresh", style = MaterialTheme.typography.labelLarge)
                   }
                 }
               }

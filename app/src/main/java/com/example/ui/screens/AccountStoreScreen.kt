@@ -1,7 +1,9 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,46 +18,40 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.LocalShipping
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.model.NovaCartCatalogBlueprint
 import com.example.ui.components.formatInrPrice
 import com.example.ui.theme.AlabasterSurface
 import com.example.ui.theme.EmeraldLive
-import com.example.ui.theme.EmeraldSoft
 import com.example.ui.theme.HairlineBorder
 import com.example.ui.theme.MutedSlate
 import com.example.ui.theme.NovaCoral
-import com.example.ui.theme.NovaCoralSoft
 import com.example.ui.theme.ObsidianInk
 import com.example.ui.theme.PureWhite
 import com.example.ui.viewmodel.NovaCartUiState
@@ -63,38 +59,38 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AccountStoreScreen(
   uiState: NovaCartUiState,
-  onStoreUrlChanged: (String) -> Unit,
-  onSaveAndSyncStore: () -> Unit,
   onOpenCustomerAccount: () -> Unit,
   onOpenOrdersPortal: () -> Unit,
   onOpenWebsitePortal: () -> Unit,
   onReopenOrderUrl: (String, String) -> Unit,
   onShareApp: () -> Unit,
+  onOpenOwnerStudio: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  val status = uiState.storeStatus
+  var ownerTapCount by remember { mutableIntStateOf(0) }
 
   Box(
     modifier = modifier.fillMaxSize().background(PureWhite),
     contentAlignment = Alignment.TopCenter,
   ) {
     LazyColumn(
-      modifier = Modifier.fillMaxSize().widthIn(max = 820.dp),
+      modifier = Modifier.fillMaxSize().widthIn(max = 820.dp).testTag("account_lazy_list"),
       contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
       verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
       item {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
           Text(
-            text = "Account & Shopify Store",
+            text = "My Account",
             style = MaterialTheme.typography.headlineMedium,
             color = ObsidianInk,
           )
           Text(
-            text = "Customer login, order tracking & live Shopify sync",
+            text = "Orders, account sign-in & NOVA CART store services",
             style = MaterialTheme.typography.bodyMedium,
             color = MutedSlate,
           )
@@ -119,7 +115,7 @@ fun AccountStoreScreen(
             )
             Text(
               text =
-                "Sign in to your Shopify customer account to view saved addresses, track shipments, and inspect full order history.",
+                "Sign in to your NOVA CART account to view saved addresses, track shipments, and inspect your complete order history.",
               style = MaterialTheme.typography.bodySmall,
               color = PureWhite.copy(alpha = 0.78f),
             )
@@ -156,7 +152,7 @@ fun AccountStoreScreen(
       item {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
           Text(
-            text = "Recent App Orders (${uiState.orderHistory.size})",
+            text = "My Orders (${uiState.orderHistory.size})",
             style = MaterialTheme.typography.titleLarge,
             color = ObsidianInk,
           )
@@ -169,7 +165,7 @@ fun AccountStoreScreen(
             ) {
               Text(
                 text =
-                  "Orders placed through the app cart will appear here automatically alongside your Shopify order history.",
+                  "Orders you place from your cart will appear here automatically for quick receipt & shipment access.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MutedSlate,
                 modifier = Modifier.padding(16.dp),
@@ -219,130 +215,31 @@ fun AccountStoreScreen(
         }
       }
 
-      // Connect Shopify Storefront Card
+      // Customer Assurance Card
       item {
-        Card(
-          shape = RoundedCornerShape(22.dp),
-          colors = CardDefaults.cardColors(containerColor = AlabasterSurface),
+        Surface(
+          shape = RoundedCornerShape(18.dp),
+          color = AlabasterSurface,
           border = BorderStroke(1.dp, HairlineBorder),
           modifier = Modifier.fillMaxWidth(),
         ) {
-          Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+          Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
           ) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically,
-            ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-              ) {
-                Icon(Icons.Outlined.CloudSync, contentDescription = null, tint = NovaCoral)
-                Text(
-                  text = "Shopify Website Connection",
-                  style = MaterialTheme.typography.titleMedium,
-                  color = ObsidianInk,
-                )
-              }
-              Surface(
-                shape = CircleShape,
-                color = if (status.syncedProductCount > 0) EmeraldSoft else NovaCoralSoft,
-              ) {
-                Text(
-                  text =
-                    when {
-                      status.isChecking -> "SYNCING"
-                      status.syncedProductCount > 0 -> "LIVE"
-                      status.isPasswordProtected -> "PASSWORD ON"
-                      else -> "CONNECTED"
-                    },
-                  style = MaterialTheme.typography.labelSmall,
-                  color = if (status.syncedProductCount > 0) EmeraldLive else NovaCoral,
-                  modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                )
-              }
-            }
-
-            Text(
-              text = status.statusDetail,
-              style = MaterialTheme.typography.bodySmall,
-              color = MutedSlate,
-            )
-
-            OutlinedTextField(
-              value = uiState.storeUrlInput,
-              onValueChange = onStoreUrlChanged,
-              label = { Text("Shopify Store URL") },
-              placeholder = { Text("https://mynovacart.in") },
-              singleLine = true,
-              keyboardOptions =
-                KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
-              shape = RoundedCornerShape(12.dp),
-              colors =
-                OutlinedTextFieldDefaults.colors(
-                  focusedBorderColor = ObsidianInk,
-                  unfocusedBorderColor = HairlineBorder,
-                  focusedContainerColor = PureWhite,
-                  unfocusedContainerColor = PureWhite,
-                ),
-              modifier = Modifier.fillMaxWidth().testTag("shopify_url_input"),
-            )
-
-            Button(
-              onClick = onSaveAndSyncStore,
-              enabled = !status.isChecking,
-              modifier = Modifier.fillMaxWidth().height(48.dp).testTag("sync_shopify_button"),
-              shape = RoundedCornerShape(12.dp),
-              colors = ButtonDefaults.buttonColors(containerColor = ObsidianInk, contentColor = PureWhite),
-            ) {
-              if (status.isChecking) {
-                CircularProgressIndicator(color = PureWhite, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Syncing Products...")
-              } else {
-                Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Save & Sync Shopify Catalog", style = MaterialTheme.typography.labelLarge)
-              }
-            }
-          }
-        }
-      }
-
-      // All 10 Unlocked Capabilities Status
-      item {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-          Text(
-            text = "Unlocked Store Capabilities (${uiState.futureFeatures.size}/${uiState.futureFeatures.size})",
-            style = MaterialTheme.typography.titleMedium,
-            color = ObsidianInk,
-          )
-          uiState.futureFeatures.forEach { feature ->
-            Surface(
-              shape = RoundedCornerShape(12.dp),
-              color = PureWhite,
-              border = BorderStroke(1.dp, HairlineBorder),
-              modifier = Modifier.fillMaxWidth(),
-            ) {
-              Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-              ) {
-                Icon(
-                  imageVector = Icons.Outlined.CheckCircle,
-                  contentDescription = "Unlocked",
-                  tint = EmeraldLive,
-                  modifier = Modifier.size(18.dp),
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                  Text(feature.title, style = MaterialTheme.typography.titleSmall, color = ObsidianInk)
-                  Text(feature.description, style = MaterialTheme.typography.bodySmall, color = MutedSlate)
-                }
-              }
+            Icon(Icons.Outlined.VerifiedUser, contentDescription = null, tint = EmeraldLive)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+              Text(
+                text = "100% Official NOVA CART Checkout",
+                style = MaterialTheme.typography.titleSmall,
+                color = ObsidianInk,
+              )
+              Text(
+                text = "Supports UPI, Cards, Net Banking & Cash on Delivery across India.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MutedSlate,
+              )
             }
           }
         }
@@ -378,7 +275,32 @@ fun AccountStoreScreen(
         }
       }
 
-      item { Spacer(modifier = Modifier.height(12.dp)) }
+      // Subtle footer for Owner Studio access (hidden from normal shopping workflow: long-press or 5 taps)
+      item {
+        Text(
+          text = "NOVA CART • v1.0",
+          style = MaterialTheme.typography.labelSmall,
+          color = MutedSlate.copy(alpha = 0.65f),
+          textAlign = TextAlign.Center,
+          modifier =
+            Modifier.fillMaxWidth()
+              .combinedClickable(
+                onClick = {
+                  ownerTapCount += 1
+                  if (ownerTapCount >= 5) {
+                    ownerTapCount = 0
+                    onOpenOwnerStudio()
+                  }
+                },
+                onLongClick = {
+                  ownerTapCount = 0
+                  onOpenOwnerStudio()
+                },
+              )
+              .padding(vertical = 12.dp)
+              .testTag("account_version_footer"),
+        )
+      }
     }
   }
 }
